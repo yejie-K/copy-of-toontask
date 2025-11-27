@@ -18,6 +18,10 @@
       .custom-scroll::-webkit-scrollbar-track { background: transparent; }
       .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       
+      /* Hide scrollbar for Wheel Picker */
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
       @keyframes check-pop {
         0% { transform: scale(0); opacity: 0; }
         60% { transform: scale(1.2); }
@@ -35,6 +39,13 @@
         background-size: 200% 200%;
         animation: wave-anim 2s ease infinite;
       }
+      /* Purple wave for countdown */
+      .wave-bg-purple {
+        background: linear-gradient(45deg, #c084fc, #a855f7, #c084fc);
+        background-size: 200% 200%;
+        animation: wave-anim 2s ease infinite;
+      }
+      
       .pop-in { animation: check-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     </style>
 </head>
@@ -52,6 +63,8 @@
         TrashFilled: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
         Calendar: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
         Timer: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+        Hourglass: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/></svg>,
+        Clock: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
         Check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
         Restore: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>,
         Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>,
@@ -62,6 +75,8 @@
         ChevronRight: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
       };
 
+      // --- CONFIGURATION CONSTANTS ---
+      // [CONFIG] Color Themes
       const THEMES = {
         lemon: { name: '柠檬黄', bg: 'bg-yellow-300', accent: 'text-yellow-600', hover: 'hover:bg-yellow-100', border: 'border-yellow-500' },
         mint: { name: '薄荷绿', bg: 'bg-emerald-300', accent: 'text-emerald-600', hover: 'hover:bg-emerald-100', border: 'border-emerald-500' },
@@ -72,8 +87,242 @@
       const formatDateKey = (date) => date.toISOString().split('T')[0];
       const getTodayKey = () => formatDateKey(new Date());
 
+      // --- Enhanced Wheel Picker (Infinite & Smooth & Inertia) ---
+      const WheelPicker = ({ options, value, onChange }) => {
+        // [CONFIG] Wheel Picker Settings
+        const itemHeight = 40;     // Item height (px)
+        const renderOffset = 60;   // Viewport offset
+        
+        // [CONFIG] Drag & Physics
+        const DRAG_SPEED = 0.5;         // 1px mouse drag = 0.5px wheel scroll
+        const INERTIA_DECAY = 0.95;     // Friction (0.99 = slippery, 0.8 = sticky)
+        const VELOCITY_THRESHOLD = 0.1; // Min velocity to trigger inertia
+        
+        const singleSetHeight = options.length * itemHeight;
+        
+        const isDragging = useRef(false);
+        const isInertia = useRef(false);
+        
+        const startY = useRef(0);
+        const startScroll = useRef(0);
+        
+        // Inertia state
+        const lastY = useRef(0);
+        const lastTime = useRef(0);
+        const velocity = useRef(0);
+        const rafId = useRef(null);
+        
+        // Initial Scroll Calculation
+        const initialIndex = options.indexOf(value);
+        const initialScroll = singleSetHeight + (initialIndex * itemHeight); 
+        
+        const [scrollPos, setScrollPos] = useState(initialScroll);
+        const scrollPosRef = useRef(initialScroll);
+
+        // Sync external value (only if not user interacting)
+        useEffect(() => {
+          const idx = options.indexOf(value);
+          if (idx !== -1 && !isDragging.current && !isInertia.current) {
+            const newPos = singleSetHeight + (idx * itemHeight);
+            setScrollPos(newPos);
+            scrollPosRef.current = newPos;
+          }
+        }, [value, options.length, singleSetHeight]);
+
+        const handleMouseDown = (e) => {
+          isDragging.current = true;
+          isInertia.current = false;
+          
+          startY.current = e.clientY;
+          lastY.current = e.clientY;
+          lastTime.current = Date.now();
+          velocity.current = 0;
+          
+          startScroll.current = scrollPosRef.current;
+          
+          if (rafId.current) cancelAnimationFrame(rafId.current);
+          
+          document.addEventListener('mousemove', handleMouseMove);
+          document.addEventListener('mouseup', handleMouseUp);
+        };
+
+        const handleMouseMove = (e) => {
+          if (!isDragging.current) return;
+          e.preventDefault();
+          
+          const now = Date.now();
+          const dt = now - lastTime.current;
+          const dy = e.clientY - lastY.current; // moved distance
+          
+          // Calculate instant velocity (pixels per ms)
+          // We average this a bit simply by frequently updating
+          if (dt > 0) {
+             velocity.current = dy / dt; 
+          }
+          lastY.current = e.clientY;
+          lastTime.current = now;
+          
+          // Regular drag logic
+          const totalDeltaY = (e.clientY - startY.current) * DRAG_SPEED;
+          let newScroll = startScroll.current - totalDeltaY;
+
+          // Infinite Wrapping
+          if (newScroll < singleSetHeight * 0.5) {
+             newScroll += singleSetHeight;
+             startScroll.current += singleSetHeight; 
+          } else if (newScroll > singleSetHeight * 1.5) {
+             newScroll -= singleSetHeight;
+             startScroll.current -= singleSetHeight; 
+          }
+
+          scrollPosRef.current = newScroll;
+          setScrollPos(newScroll);
+          
+          // Update visual selection
+          const centerIndex = Math.round(newScroll / itemHeight) % options.length;
+          if (options[centerIndex] !== value) onChange(options[centerIndex]);
+        };
+
+        const handleMouseUp = () => {
+          isDragging.current = false;
+          document.removeEventListener('mousemove', handleMouseMove);
+          document.removeEventListener('mouseup', handleMouseUp);
+          
+          // Check if we should slide (Inertia)
+          if (Math.abs(velocity.current) > VELOCITY_THRESHOLD) {
+             isInertia.current = true;
+             startInertiaLoop();
+          } else {
+             snapToGrid();
+          }
+        };
+        
+        const startInertiaLoop = () => {
+           const loop = () => {
+              if (!isInertia.current) return;
+              
+              // Apply friction
+              velocity.current *= INERTIA_DECAY;
+              
+              // Move scroll (velocity is negative when dragging up, which increases scrollY visually if inverted, 
+              // but here dragging up (neg Y) -> increases scrollPos? 
+              // Logic: Drag Up (-Y) -> newScroll = start - (-Y) = start + Y. Scroll increases.
+              // So velocity matches scroll direction change inverted.
+              // Let's just apply velocity directly to scroll subtraction to match drag logic.
+              // drag: scroll = start - delta. delta increases as Y increases.
+              // velocity = dY/dt. 
+              // step = velocity * dt. 
+              // scroll -= step * speed_factor
+              
+              const step = velocity.current * 16 * DRAG_SPEED * 1.5; // 16ms frame approx
+              let newScroll = scrollPosRef.current - step;
+
+              // Wrapping
+              if (newScroll < singleSetHeight * 0.5) newScroll += singleSetHeight;
+              else if (newScroll > singleSetHeight * 1.5) newScroll -= singleSetHeight;
+
+              scrollPosRef.current = newScroll;
+              setScrollPos(newScroll);
+              
+              const centerIndex = Math.round(newScroll / itemHeight) % options.length;
+              if (options[centerIndex] !== value) onChange(options[centerIndex]);
+              
+              // Stop condition
+              if (Math.abs(velocity.current) < 0.05) {
+                 isInertia.current = false;
+                 snapToGrid();
+              } else {
+                 rafId.current = requestAnimationFrame(loop);
+              }
+           };
+           rafId.current = requestAnimationFrame(loop);
+        };
+
+        const snapToGrid = () => {
+          isInertia.current = false;
+          if (rafId.current) cancelAnimationFrame(rafId.current);
+          
+          const current = scrollPosRef.current;
+          const snapIndex = Math.round(current / itemHeight);
+          const snapScroll = snapIndex * itemHeight;
+          
+          // Simple animation to snap could go here, but instant is robust for now
+          setScrollPos(snapScroll);
+          scrollPosRef.current = snapScroll;
+          
+          const finalIndex = snapIndex % options.length;
+          onChange(options[finalIndex]);
+        };
+
+        return (
+          <div 
+            className="relative h-40 w-20 overflow-hidden select-none cursor-grab active:cursor-grabbing bg-slate-50 rounded-xl"
+            onMouseDown={handleMouseDown}
+          >
+            {/* Highlight Bar */}
+            <div className="absolute top-1/2 left-0 w-full h-10 -mt-5 border-y-2 border-slate-900 z-10 pointer-events-none bg-slate-900/5"></div>
+            
+            {/* Sliding Container */}
+            <div 
+              className="absolute top-0 left-0 w-full will-change-transform"
+              style={{ transform: `translateY(${-scrollPos + renderOffset}px)` }}
+            >
+              {[...options, ...options, ...options].map((opt, i) => (
+                <div key={i} className="h-10 flex items-center justify-center font-bold text-xl text-slate-800">
+                   {opt}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      };
+
+      // --- Time Picker Modal ---
+      const TimePickerModal = ({ initialSeconds, onSave, onCancel }) => {
+        const [hours, setHours] = useState(Math.floor(initialSeconds / 3600));
+        const [minutes, setMinutes] = useState(Math.floor((initialSeconds % 3600) / 60));
+
+        const hourOptions = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'));
+        const minuteOptions = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+
+        const handleSave = () => {
+          onSave(parseInt(hours) * 3600 + parseInt(minutes) * 60);
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onCancel}></div>
+            <div className="relative bg-white w-full max-w-xs rounded-[2rem] border-2 border-slate-900 shadow-[3px_3px_0px_0px_#fff] p-6 pop-in">
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-4 flex justify-center items-center gap-2">
+                 <Icons.Clock /> 设置倒计时
+              </h3>
+              
+              <div className="flex justify-center gap-4 mb-6">
+                 <div className="text-center">
+                    <div className="text-xs font-bold text-slate-400 mb-1">小时</div>
+                    <div className="border-2 border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
+                       <WheelPicker options={hourOptions} value={hours.toString().padStart(2,'0')} onChange={setHours} />
+                    </div>
+                 </div>
+                 <div className="flex items-center font-black text-slate-300 text-xl">:</div>
+                 <div className="text-center">
+                    <div className="text-xs font-bold text-slate-400 mb-1">分钟</div>
+                    <div className="border-2 border-slate-200 rounded-xl bg-slate-50 overflow-hidden">
+                       <WheelPicker options={minuteOptions} value={minutes.toString().padStart(2,'0')} onChange={setMinutes} />
+                    </div>
+                 </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={onCancel} className="flex-1 py-3 rounded-xl border-2 border-slate-200 font-bold text-slate-500 hover:bg-slate-50 transition-colors">取消</button>
+                <button onClick={handleSave} className="flex-1 py-3 rounded-xl border-2 border-slate-900 bg-purple-400 text-white font-bold shadow-[2px_2px_0px_0px_#0f172a] active:translate-y-[2px] active:shadow-none transition-all">确定</button>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
       // --- Custom Calendar ---
-      // FIXED: Uses 'absolute' positioning inside the 'relative' app container.
       const CustomCalendar = ({ currentDate, onSelect, onClose }) => {
         const [viewDate, setViewDate] = useState(new Date(currentDate));
         
@@ -89,10 +338,7 @@
 
         return (
           <>
-            {/* Full screen backdrop for click-outside */}
             <div className="fixed inset-0 z-40 bg-transparent" onClick={onClose}></div>
-            
-            {/* Calendar Widget */}
             <div 
               className="absolute top-[80px] right-5 z-50 bg-white p-4 rounded-2xl border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] w-64 pop-in"
               onClick={(e) => e.stopPropagation()} 
@@ -131,7 +377,7 @@
         );
       };
 
-      // --- Stats View ---
+      // --- Stats View (Compact) ---
       const StatsView = ({ data, onClose, theme }) => {
         const [timeframe, setTimeframe] = useState('week');
 
@@ -159,6 +405,7 @@
                  currentSession = (Date.now() - t.lastStartedAt) / 1000;
               }
               const taskTotal = (t.totalTimeSeconds || 0) + currentSession;
+              
               if (taskTotal > 0) {
                  durationMap[name] = (durationMap[name] || 0) + taskTotal;
                  totalDuration += taskTotal;
@@ -183,7 +430,6 @@
         let gradientParts = [];
         let currentPct = 0;
         
-        // Variables for the Callout
         let maxItem = null;
         let maxAngle = 0; 
         
@@ -193,7 +439,6 @@
            
            if (idx === 0 && stats.totalDuration > 0) {
              maxItem = item;
-             // Calculate middle angle of the largest slice
              const startDeg = currentPct * 3.6;
              const endDeg = (currentPct + pct) * 3.6;
              maxAngle = startDeg + (endDeg - startDeg) / 2;
@@ -214,92 +459,83 @@
           return `${m}m`;
         };
         
-        // Math for connecting line and card position
-        // angle 0 is top. 
-        // x = sin(a) * r, y = -cos(a) * r
         const rad = maxAngle * (Math.PI / 180);
-        const radius = 70; // Distance for card center
+        const radius = 60; // Reduced radius
         const cardX = Math.sin(rad) * radius;
         const cardY = -Math.cos(rad) * radius;
         
-        // Determine layout based on side (left/right)
-        const isRightSide = cardX >= 0;
-
         return (
           <div className="absolute inset-0 bg-white z-20 flex flex-col pop-in">
-            <div className="bg-slate-900 p-5 flex justify-between items-center text-white border-b-2 border-slate-900">
-              <h2 className="text-xl font-bold flex items-center gap-2">
+            {/* Header - Thinner */}
+            <div className="bg-slate-900 p-3 flex justify-between items-center text-white border-b-2 border-slate-900 shrink-0">
+              <h2 className="text-lg font-bold flex items-center gap-2">
                 <Icons.Pie /> 任务统计
               </h2>
-              <button onClick={onClose} className="p-2 bg-white/10 rounded-lg hover:bg-white/20"><Icons.Back /></button>
+              <button onClick={onClose} className="p-1.5 bg-white/10 rounded-lg hover:bg-white/20"><Icons.Back /></button>
             </div>
 
-            <div className="flex-1 p-6 overflow-y-auto custom-scroll bg-slate-50">
-              <div className="flex bg-white p-1 rounded-xl mb-6 border-2 border-slate-200 shadow-sm">
-                <button onClick={() => setTimeframe('week')} className={`flex-1 py-1.5 text-sm font-bold rounded-lg transition-all ${timeframe === 'week' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本周</button>
-                <button onClick={() => setTimeframe('month')} className={`flex-1 py-1.5 text-sm font-bold rounded-lg transition-all ${timeframe === 'month' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本月</button>
+            {/* Content - Compressed Layout, No Scroll needed mostly */}
+            <div className="flex-1 p-3 bg-slate-50 flex flex-col overflow-hidden">
+              <div className="flex bg-white p-1 rounded-xl mb-4 border-2 border-slate-200 shadow-sm shrink-0">
+                <button onClick={() => setTimeframe('week')} className={`flex-1 py-1 text-sm font-bold rounded-lg transition-all ${timeframe === 'week' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本周</button>
+                <button onClick={() => setTimeframe('month')} className={`flex-1 py-1 text-sm font-bold rounded-lg transition-all ${timeframe === 'month' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本月</button>
               </div>
 
-              {/* Pie Chart Area */}
-              <div className="flex justify-center mb-12 relative pt-6 min-h-[240px]">
-                <div className="relative w-48 h-48">
-                  {/* The Pie */}
+              {/* Pie Chart Area - Compact */}
+              <div className="flex justify-center mb-4 relative min-h-[180px] shrink-0">
+                <div className="relative w-40 h-40">
                   <div className="w-full h-full rounded-full border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a]" style={pieStyle}></div>
-                  <div className="absolute inset-0 m-auto w-16 h-16 bg-slate-50 rounded-full border-2 border-slate-900 flex items-center justify-center shadow-inner">
-                     <span className="text-xs font-bold text-slate-400">Total</span>
+                  <div className="absolute inset-0 m-auto w-12 h-12 bg-slate-50 rounded-full border-2 border-slate-900 flex items-center justify-center shadow-inner">
+                     <span className="text-[10px] font-bold text-slate-400">Total</span>
                   </div>
                   
-                  {/* Fixed: Horizontal Rectangular Card + Line */}
                   {maxItem && (
                      <>
-                        {/* Line from center to card */}
                         <div 
                            className="absolute top-1/2 left-1/2 bg-slate-900 origin-bottom"
                            style={{
                               width: '2px',
-                              height: '40px',
-                              transform: `translate(-50%, -100%) rotate(${maxAngle}deg) translateY(-24px)`
+                              height: '30px',
+                              transform: `translate(-50%, -100%) rotate(${maxAngle}deg) translateY(-20px)`
                            }}
                         ></div>
-                        
-                        {/* The Horizontal Card */}
                         <div 
-                           className="absolute flex flex-col justify-center items-center bg-white px-3 py-1.5 rounded-lg border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] z-10"
+                           className="absolute flex flex-col justify-center items-center bg-white px-2 py-1 rounded-lg border-2 border-slate-900 shadow-[1px_1px_0px_0px_#0f172a] z-10"
                            style={{
                               top: '50%',
                               left: '50%',
-                              transform: `translate(-50%, -50%) translate(${cardX * 1.4}px, ${cardY * 1.4}px)`,
-                              minWidth: '80px'
+                              transform: `translate(-50%, -50%) translate(${cardX * 1.3}px, ${cardY * 1.3}px)`,
+                              minWidth: '60px'
                            }}
                         >
-                           <span className="text-xs font-bold text-slate-900 whitespace-nowrap">{maxItem.name}</span>
-                           <span className="text-[10px] font-bold text-slate-500">{Math.round((maxItem.time/stats.totalDuration)*100)}%</span>
+                           <span className="text-[10px] font-bold text-slate-900 whitespace-nowrap">{maxItem.name}</span>
+                           <span className="text-[8px] font-bold text-slate-500">{Math.round((maxItem.time/stats.totalDuration)*100)}%</span>
                         </div>
                      </>
                   )}
                 </div>
               </div>
 
-              {/* List */}
-              <div className="space-y-2 mb-6">
+              {/* List Area - Auto Sized */}
+              <div className="space-y-2 mb-3 flex-1 overflow-y-auto custom-scroll pr-1">
                 {stats.totalDuration === 0 ? (
-                    <div className="text-center text-slate-400 font-bold py-4">这段时间没有记录哦</div>
+                    <div className="text-center text-slate-400 font-bold py-2 text-sm">这段时间没有记录哦</div>
                 ) : (
                     stats.items.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-3 bg-white border-2 border-slate-200 rounded-xl">
-                        <div className="flex items-center gap-3 overflow-hidden">
-                          <div className="w-4 h-4 rounded-full border-2 border-slate-900 shrink-0" style={{ background: colors[idx % colors.length] }}></div>
-                          <span className="font-bold text-slate-700 text-sm truncate">{item.name}</span>
+                      <div key={idx} className="flex items-center justify-between p-2 bg-white border-2 border-slate-200 rounded-lg">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <div className="w-3 h-3 rounded-full border-2 border-slate-900 shrink-0" style={{ background: colors[idx % colors.length] }}></div>
+                          <span className="font-bold text-slate-700 text-xs truncate">{item.name}</span>
                         </div>
-                        <span className="font-bold text-slate-900 text-sm">{formatDuration(item.time)}</span>
+                        <span className="font-bold text-slate-900 text-xs">{formatDuration(item.time)}</span>
                       </div>
                     ))
                 )}
               </div>
 
-              <div className={`${THEMES[theme].bg} p-4 rounded-xl border-2 border-slate-900 flex items-center justify-between shadow-[2px_2px_0px_0px_#0f172a]`}>
+              <div className={`${THEMES[theme].bg} p-3 rounded-xl border-2 border-slate-900 flex items-center justify-between shadow-[2px_2px_0px_0px_#0f172a] shrink-0`}>
                 <span className="font-bold text-slate-800 text-sm">总专注时长</span>
-                <span className="font-black text-xl text-slate-900">{formatDuration(stats.totalDuration)}</span>
+                <span className="font-black text-lg text-slate-900">{formatDuration(stats.totalDuration)}</span>
               </div>
             </div>
           </div>
@@ -350,7 +586,7 @@
         const [modalConfig, setModalConfig] = useState(null);
 
         useEffect(() => {
-          const saved = localStorage.getItem('toontask-v5');
+          const saved = localStorage.getItem('toontask-v6');
           if (saved) {
             try {
                const parsed = JSON.parse(saved);
@@ -362,7 +598,7 @@
 
         useEffect(() => {
           if (Object.keys(store.tasks).length > 0 || store.trash.length > 0) {
-             localStorage.setItem('toontask-v5', JSON.stringify({ store, theme }));
+             localStorage.setItem('toontask-v6', JSON.stringify({ store, theme }));
           }
         }, [store, theme]);
 
@@ -370,7 +606,7 @@
 
         const addTodo = (text) => {
           if (!text.trim()) return;
-          const newTodo = { id: Date.now().toString(), text, status: 'idle', totalTimeSeconds: 0, lastStartedAt: null };
+          const newTodo = { id: Date.now().toString(), text, status: 'idle', totalTimeSeconds: 0, lastStartedAt: null, targetDurationSeconds: 0 };
           setStore(prev => ({ ...prev, tasks: { ...prev.tasks, [currentDate]: [newTodo, ...(prev.tasks[currentDate] || [])] } }));
         };
 
@@ -402,14 +638,35 @@
           const index = todos.findIndex(t => t.id === id);
           if (index === -1) return;
           const todo = todos[index];
+          const isCountdown = todo.targetDurationSeconds > 0;
 
           if (todo.status === 'idle') {
+            // IDLE -> RUNNING (Start or Resume)
             todos[index] = { ...todo, status: 'running', lastStartedAt: Date.now() };
+          
           } else if (todo.status === 'running') {
+            // RUNNING -> ?
             const now = Date.now();
             const session = (now - todo.lastStartedAt) / 1000;
-            todos[index] = { ...todo, status: 'done', lastStartedAt: null, totalTimeSeconds: todo.totalTimeSeconds + session };
+            const newTotal = todo.totalTimeSeconds + session;
+
+            if (isCountdown) {
+                const remaining = todo.targetDurationSeconds - newTotal;
+                
+                if (remaining <= 0) {
+                    // Time is up. Click -> Done.
+                    todos[index] = { ...todo, status: 'done', lastStartedAt: null, totalTimeSeconds: newTotal };
+                } else {
+                    // Time remains. Click -> Pause.
+                    todos[index] = { ...todo, status: 'idle', lastStartedAt: null, totalTimeSeconds: newTotal };
+                }
+            } else {
+                // StopWatch Mode: Click -> Done
+                todos[index] = { ...todo, status: 'done', lastStartedAt: null, totalTimeSeconds: newTotal };
+            }
+
           } else if (todo.status === 'done') {
+            // DONE -> IDLE (via Reset)
             setModalConfig({ id, type: 'reset' });
             return;
           }
@@ -417,8 +674,25 @@
           setStore(prev => ({ ...prev, tasks: { ...prev.tasks, [currentDate]: todos } }));
         };
 
+        const handleSetDuration = (id, duration) => {
+           const todos = [...currentTodos];
+           const index = todos.findIndex(t => t.id === id);
+           if (index === -1) return;
+           
+           todos[index] = { 
+               ...todos[index], 
+               targetDurationSeconds: duration,
+               status: 'idle',
+               totalTimeSeconds: 0,
+               lastStartedAt: null
+           };
+           
+           setStore(prev => ({ ...prev, tasks: { ...prev.tasks, [currentDate]: todos } }));
+           setModalConfig(null);
+        };
+
         const confirmReset = () => {
-          if (!modalConfig) return;
+          if (!modalConfig || modalConfig.type !== 'reset') return;
           setStore(prev => ({
              ...prev, 
              tasks: { 
@@ -460,7 +734,6 @@
                   <div className="flex gap-2">
                      <button onClick={() => setShowSettings(true)} className="p-2 bg-white/30 hover:bg-white/50 rounded-xl transition-colors text-slate-900"><Icons.Gear /></button>
                      
-                     {/* Calendar Trigger */}
                      <div className="relative">
                         <button 
                           onClick={() => setShowCalendar(true)}
@@ -489,7 +762,6 @@
               </div>
             </div>
 
-            {/* Calendar Component */}
             {showCalendar && <CustomCalendar currentDate={currentDate} onSelect={(d) => setCurrentDate(d)} onClose={() => setShowCalendar(false)} />}
 
             <div className={`flex-1 overflow-y-auto p-4 space-y-3 custom-scroll ${view === 'trash' ? 'bg-red-50' : 'bg-white'}`}>
@@ -501,7 +773,14 @@
               )}
 
               {view === 'list' && sortedTodos.map(todo => (
-                <TodoItem key={todo.id} todo={todo} theme={activeTheme} onStatusChange={() => handleStatusChange(todo.id)} onDelete={() => moveToTrash(todo.id)} />
+                <TodoItem 
+                    key={todo.id} 
+                    todo={todo} 
+                    theme={activeTheme} 
+                    onStatusChange={() => handleStatusChange(todo.id)} 
+                    onDelete={() => moveToTrash(todo.id)}
+                    onOpenTimer={() => setModalConfig({ type: 'timer', id: todo.id })}
+                />
               ))}
 
               {view === 'trash' && store.trash.map(todo => (
@@ -517,56 +796,114 @@
 
             {view === 'list' && <AddTodoForm onAdd={addTodo} theme={activeTheme} />}
 
-            {modalConfig && <ConfirmationModal onConfirm={confirmReset} onCancel={() => setModalConfig(null)} />}
+            {modalConfig?.type === 'reset' && <ConfirmationModal onConfirm={confirmReset} onCancel={() => setModalConfig(null)} />}
+            
+            {modalConfig?.type === 'timer' && (
+                <TimePickerModal 
+                    initialSeconds={currentTodos.find(t => t.id === modalConfig.id)?.targetDurationSeconds || 0}
+                    onSave={(sec) => handleSetDuration(modalConfig.id, sec)}
+                    onCancel={() => setModalConfig(null)}
+                />
+            )}
+            
             {showSettings && <SettingsModal currentTheme={theme} onSetTheme={setTheme} onClose={() => setShowSettings(false)} />}
           </div>
         );
       };
 
-      const TodoItem = ({ todo, onStatusChange, onDelete, theme }) => {
-        const [time, setTime] = useState(todo.totalTimeSeconds);
+      const TodoItem = ({ todo, onStatusChange, onDelete, onOpenTimer, theme }) => {
+        const [displayTime, setDisplayTime] = useState(todo.totalTimeSeconds);
+        const [isOverdue, setIsOverdue] = useState(false);
+        const isCountdown = todo.targetDurationSeconds > 0;
 
         useEffect(() => {
           let interval;
+          const update = () => {
+             const elapsed = todo.totalTimeSeconds + (
+                 (todo.status === 'running' && todo.lastStartedAt) 
+                 ? (Date.now() - todo.lastStartedAt) / 1000 
+                 : 0
+             );
+             
+             if (isCountdown) {
+                 const remaining = todo.targetDurationSeconds - elapsed;
+                 if (remaining <= 0) {
+                     setDisplayTime(0);
+                     setIsOverdue(true);
+                 } else {
+                     setDisplayTime(remaining);
+                     setIsOverdue(false);
+                 }
+             } else {
+                 setDisplayTime(elapsed);
+             }
+          };
+
           if (todo.status === 'running' && todo.lastStartedAt) {
-            interval = setInterval(() => {
-              setTime(todo.totalTimeSeconds + (Date.now() - todo.lastStartedAt) / 1000);
-            }, 1000);
+            interval = setInterval(update, 1000);
+            update();
           } else {
-            setTime(todo.totalTimeSeconds);
+            update();
           }
           return () => clearInterval(interval);
-        }, [todo.status, todo.lastStartedAt, todo.totalTimeSeconds]);
+        }, [todo.status, todo.lastStartedAt, todo.totalTimeSeconds, todo.targetDurationSeconds, isCountdown]);
 
         const formatTime = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${Math.floor(s%60).toString().padStart(2,'0')}`;
 
         return (
-          <div className={`relative flex items-center justify-between p-3 rounded-xl border-2 transition-all duration-200 group bg-white hover:border-slate-400 
-            ${todo.status === 'running' ? `border-orange-400 ${theme.bg} bg-opacity-10` : 'border-slate-200'}
-            ${todo.status === 'done' ? 'opacity-60 bg-slate-50' : ''}
-          `}>
-            <div className="flex items-center gap-3 flex-1 overflow-hidden">
-              <button 
-                onClick={onStatusChange}
-                className={`relative w-6 h-6 rounded-full border-2 border-slate-800 overflow-hidden flex items-center justify-center transition-transform active:scale-90 hover:scale-105 flex-shrink-0 bg-white`}
+          <div 
+             onClick={onStatusChange}
+             className={`relative flex items-center justify-between p-3 rounded-xl border-2 transition-all duration-200 group hover:border-slate-400 cursor-pointer select-none
+               ${todo.status === 'running' ? `border-slate-900 ${theme.bg} bg-opacity-10` : 'border-slate-200 bg-white'}
+               ${todo.status === 'done' ? 'opacity-60 bg-slate-50' : ''}
+             `}
+          >
+            <div className="flex items-center gap-3 flex-1 overflow-hidden pointer-events-none">
+              
+              {/* Visual Status Circle - Updated for Cleaner Look */}
+              <div 
+                className={`relative w-6 h-6 rounded-full border-2 border-slate-800 flex items-center justify-center flex-shrink-0 bg-white transition-transform p-[3px]
+                  ${todo.status === 'running' ? 'scale-110' : ''}
+                `}
               >
-                {todo.status === 'running' && <div className="absolute inset-0 wave-bg"></div>}
-                {todo.status === 'done' && <div className="absolute inset-0 bg-emerald-500 flex items-center justify-center check-enter"><Icons.Check /></div>}
-              </button>
+                <div className="w-full h-full rounded-full overflow-hidden relative">
+                    {/* Visual indicator for running status */}
+                    {todo.status === 'running' && (
+                        <div className={`absolute inset-0 ${isCountdown ? 'wave-bg-purple' : 'wave-bg'}`}></div>
+                    )}
+                    {/* Paused state indicator for countdown */}
+                    {(isCountdown && todo.status === 'idle' && todo.totalTimeSeconds > 0 && !isOverdue) && (
+                         <div className="absolute inset-0 bg-purple-100 flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 bg-purple-400 rounded-full"></div>
+                         </div>
+                    )}
+                    {todo.status === 'done' && <div className="absolute inset-0 bg-emerald-500 flex items-center justify-center check-enter"><Icons.Check /></div>}
+                </div>
+              </div>
               
               <span className={`font-bold text-base truncate transition-all ${todo.status === 'done' ? 'line-through text-slate-400' : 'text-slate-700'}`}>
                 {todo.text}
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
-              {(todo.status === 'running' || time > 0) && (
-                <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-bold border 
-                  ${todo.status === 'running' ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                  <Icons.Timer /> {formatTime(time)}
+            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+              {(todo.status === 'running' || displayTime > 0 || isCountdown) && (
+                <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-bold border transition-colors
+                  ${isCountdown 
+                      ? (isOverdue ? 'bg-red-100 text-red-600 border-red-300' : 'bg-purple-100 text-purple-700 border-purple-300')
+                      : (todo.status === 'running' ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-slate-100 text-slate-500 border-slate-200')
+                  }
+                  `}>
+                  {isCountdown ? <Icons.Hourglass /> : <Icons.Timer />} 
+                  {formatTime(displayTime)}
                 </div>
               )}
-              <button onClick={onDelete} className="w-6 h-6 flex items-center justify-center rounded text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+              
+              <button onClick={onOpenTimer} className="w-6 h-6 flex items-center justify-center rounded text-slate-300 hover:text-purple-500 transition-colors">
+                 <Icons.Clock />
+              </button>
+
+              <button onClick={onDelete} className="w-6 h-6 flex items-center justify-center rounded text-slate-300 hover:text-red-500 transition-colors">
                 <Icons.Trash />
               </button>
             </div>
