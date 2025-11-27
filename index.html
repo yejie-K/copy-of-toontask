@@ -1,54 +1,563 @@
+
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+<head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ToonTask</title>
+    <title>ToonTask Desktop Widget</title>
+    
+    <!-- 1. 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Babel to compile React in the browser -->
+    
+    <!-- 2. 引入 React 和 ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- 3. 引入 Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- 4. 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
     <style>
       body {
         font-family: 'Fredoka', sans-serif;
-        background-color: #f0f4f8;
-        user-select: none;
+        background-color: transparent;
       }
-      ::-webkit-scrollbar {
-        width: 8px;
+      /* 自定义滚动条 */
+      .custom-scroll::-webkit-scrollbar { width: 5px; }
+      .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+      .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+      
+      /* 动画定义 */
+      @keyframes check-pop {
+        0% { transform: scale(0); opacity: 0; }
+        60% { transform: scale(1.2); }
+        100% { transform: scale(1); opacity: 1; }
       }
-      ::-webkit-scrollbar-track {
-        background: transparent;
+      .check-enter { animation: check-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+      
+      @keyframes wave-anim {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
       }
-      ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 10px;
+      .wave-bg {
+        background: linear-gradient(45deg, #fbbf24, #f59e0b, #fbbf24);
+        background-size: 200% 200%;
+        animation: wave-anim 2s ease infinite;
       }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-      }
+
+      /* 通用弹窗/下拉动画 */
+      .pop-in { animation: check-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     </style>
-    <script type="importmap">
+<script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.294.0",
-    "framer-motion": "https://esm.sh/framer-motion@10.16.4",
-    "date-fns": "https://esm.sh/date-fns@2.30.0",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "date-fns": "https://aistudiocdn.com/date-fns@^4.1.0",
+    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24"
   }
 }
 </script>
-  <link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div id="root"></div>
-    <!-- Load the main entry file with Babel processing -->
-    <script type="text/babel" data-type="module" src="./index.tsx"></script>
-  <script type="module" src="/index.tsx"></script>
+<body class="bg-slate-100/50 flex items-center justify-center min-h-screen p-4">
+
+    <div id="root" class="w-full max-w-md h-[85vh]"></div>
+
+    <script type="text/babel">
+      const { useState, useEffect, useMemo, useRef } = React;
+
+      // --- SVG 图标库 (优化版，线条更细) ---
+      const Icons = {
+        Plus: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
+        Trash: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
+        TrashFilled: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
+        Calendar: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
+        Timer: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+        Check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+        Refresh: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>,
+        Restore: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>,
+        Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>,
+        Pie: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>,
+        Gear: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
+        Swap: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>,
+        ChevronLeft: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>,
+        ChevronRight: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      };
+
+      // --- 主题配置 ---
+      const THEMES = {
+        lemon: { name: '柠檬黄', bg: 'bg-yellow-300', accent: 'text-yellow-600', hover: 'hover:bg-yellow-100', border: 'border-yellow-500' },
+        mint: { name: '薄荷绿', bg: 'bg-emerald-300', accent: 'text-emerald-600', hover: 'hover:bg-emerald-100', border: 'border-emerald-500' },
+        rose: { name: '樱花粉', bg: 'bg-rose-300', accent: 'text-rose-600', hover: 'hover:bg-rose-100', border: 'border-rose-500' },
+        sky: { name: '天空蓝', bg: 'bg-sky-300', accent: 'text-sky-600', hover: 'hover:bg-sky-100', border: 'border-sky-500' },
+      };
+
+      // --- 工具函数 ---
+      const formatDateKey = (date) => date.toISOString().split('T')[0];
+      const getTodayKey = () => formatDateKey(new Date());
+
+      // --- 组件：自定义日历弹窗 ---
+      const CustomCalendar = ({ currentDate, onSelect, onClose }) => {
+        const [viewDate, setViewDate] = useState(new Date(currentDate));
+
+        const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+        const firstDayOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay();
+
+        const handlePrevMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+        const handleNextMonth = () => setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+
+        const days = [];
+        for (let i = 0; i < firstDayOfMonth; i++) days.push(null);
+        for (let i = 1; i <= daysInMonth; i++) days.push(i);
+
+        return (
+          <div className="absolute top-16 right-4 z-50 bg-white p-4 rounded-2xl border-[2.5px] border-slate-900 shadow-[4px_4px_0px_0px_#0f172a] w-64 pop-in">
+             <div className="flex justify-between items-center mb-4">
+                <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronLeft /></button>
+                <span className="font-bold text-slate-800">{viewDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronRight /></button>
+             </div>
+             <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 mb-2">
+               <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+             </div>
+             <div className="grid grid-cols-7 gap-1">
+               {days.map((day, idx) => {
+                 if (!day) return <div key={idx} />;
+                 const dateStr = formatDateKey(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
+                 const isSelected = dateStr === currentDate;
+                 const isToday = dateStr === getTodayKey();
+                 
+                 return (
+                   <button
+                     key={idx}
+                     onClick={() => { onSelect(dateStr); onClose(); }}
+                     className={`h-8 w-8 rounded-lg text-sm font-bold flex items-center justify-center transition-all 
+                       ${isSelected ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 text-slate-700'}
+                       ${isToday && !isSelected ? 'border-2 border-slate-900' : ''}
+                     `}
+                   >
+                     {day}
+                   </button>
+                 );
+               })}
+             </div>
+          </div>
+        );
+      };
+
+      // --- 组件：统计饼图 ---
+      const StatsView = ({ data, onClose, theme }) => {
+        const [timeframe, setTimeframe] = useState('week');
+
+        const stats = useMemo(() => {
+          const now = new Date();
+          const targetKeys = [];
+          const days = timeframe === 'week' ? 7 : 30;
+          
+          for (let i = 0; i < days; i++) {
+            const d = new Date();
+            d.setDate(now.getDate() - i);
+            targetKeys.push(formatDateKey(d));
+          }
+
+          let done = 0, running = 0, idle = 0, totalSeconds = 0;
+          
+          targetKeys.forEach(key => {
+            const dayTasks = data.tasks[key] || [];
+            dayTasks.forEach(t => {
+              if (t.status === 'done') done++;
+              else if (t.status === 'running') running++;
+              else idle++;
+              totalSeconds += (t.totalTimeSeconds || 0);
+            });
+          });
+
+          const total = done + running + idle;
+          return { done, running, idle, total, totalSeconds };
+        }, [data, timeframe]);
+
+        const donePct = stats.total ? (stats.done / stats.total) * 100 : 0;
+        const runPct = stats.total ? (stats.running / stats.total) * 100 : 0;
+        
+        const pieStyle = {
+          background: stats.total === 0 
+            ? '#e2e8f0' 
+            : `conic-gradient(
+                #10b981 0% ${donePct}%, 
+                #f59e0b ${donePct}% ${donePct + runPct}%, 
+                #f1f5f9 ${donePct + runPct}% 100%
+              )`
+        };
+
+        const formatDuration = (s) => {
+          const h = Math.floor(s / 3600);
+          const m = Math.floor((s % 3600) / 60);
+          return h > 0 ? `${h}h ${m}m` : `${m}m`;
+        };
+
+        return (
+          <div className="absolute inset-0 bg-white z-20 flex flex-col pop-in">
+            <div className="bg-slate-900 p-5 flex justify-between items-center text-white border-b-2 border-slate-900">
+              <h2 className="text-xl font-bold flex items-center gap-2">
+                <Icons.Pie /> 统计 · Statistics
+              </h2>
+              <button onClick={onClose} className="p-2 bg-white/10 rounded-lg hover:bg-white/20"><Icons.Back /></button>
+            </div>
+
+            <div className="flex-1 p-6 overflow-y-auto custom-scroll bg-slate-50">
+              <div className="flex bg-white p-1 rounded-xl mb-6 border-2 border-slate-200">
+                <button onClick={() => setTimeframe('week')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${timeframe === 'week' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本周</button>
+                <button onClick={() => setTimeframe('month')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${timeframe === 'month' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本月</button>
+              </div>
+
+              <div className="flex justify-center mb-8 relative">
+                <div className="w-40 h-40 rounded-full border-[3px] border-slate-900 shadow-[4px_4px_0px_0px_#0f172a]" style={pieStyle}></div>
+                {stats.total === 0 && <span className="absolute inset-0 flex items-center justify-center font-bold text-slate-400 text-xs">暂无数据</span>}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2 mb-6 text-center">
+                <StatCard color="bg-emerald-100 text-emerald-700" title="已完成" value={stats.done} />
+                <StatCard color="bg-orange-100 text-orange-700" title="执行中" value={stats.running} />
+                <StatCard color="bg-slate-200 text-slate-700" title="未开始" value={stats.idle} />
+              </div>
+
+              <div className={`${THEMES[theme].bg} p-4 rounded-xl border-[2.5px] border-slate-900 flex items-center justify-between shadow-[2px_2px_0px_0px_#0f172a]`}>
+                <span className="font-bold text-slate-800 text-sm">专注总时长</span>
+                <span className="font-black text-xl text-slate-900">{formatDuration(stats.totalSeconds)}</span>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      const StatCard = ({ color, title, value }) => (
+        <div className={`p-2 rounded-xl border-[2px] border-slate-900 ${color}`}>
+          <div className="font-bold text-xl">{value}</div>
+          <div className="text-[10px] opacity-80 font-bold">{title}</div>
+        </div>
+      );
+
+      // --- 组件：设置弹窗 ---
+      const SettingsModal = ({ currentTheme, onSetTheme, onClose }) => {
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose}></div>
+            <div className="relative bg-white w-full max-w-xs rounded-[2rem] border-[3px] border-slate-900 shadow-[6px_6px_0px_0px_#fff] p-5 pop-in">
+              <div className="flex justify-between items-center mb-4">
+                 <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Icons.Gear /> 设置</h3>
+                 <button onClick={onClose}><Icons.Trash className="rotate-45" /></button> {/* Close icon hacked from trash */}
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                   <label className="text-sm font-bold text-slate-500 mb-2 block">主题颜色</label>
+                   <div className="grid grid-cols-2 gap-2">
+                     {Object.entries(THEMES).map(([key, t]) => (
+                       <button 
+                         key={key}
+                         onClick={() => onSetTheme(key)}
+                         className={`p-2 rounded-xl border-2 font-bold text-sm flex items-center gap-2 transition-all
+                           ${currentTheme === key ? 'border-slate-900 bg-slate-100' : 'border-transparent hover:bg-slate-50'}
+                         `}
+                       >
+                         <div className={`w-4 h-4 rounded-full border border-slate-900 ${t.bg}`}></div>
+                         {t.name}
+                       </button>
+                     ))}
+                   </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      // --- 主应用 ---
+      const App = () => {
+        const [store, setStore] = useState({ tasks: {}, trash: [] });
+        const [currentDate, setCurrentDate] = useState(getTodayKey());
+        const [view, setView] = useState('list'); // 'list' | 'trash' | 'stats'
+        const [showCalendar, setShowCalendar] = useState(false);
+        const [showSettings, setShowSettings] = useState(false);
+        const [theme, setTheme] = useState('lemon');
+        
+        const [modalConfig, setModalConfig] = useState(null);
+
+        // 初始化
+        useEffect(() => {
+          const saved = localStorage.getItem('toontask-v4');
+          if (saved) {
+            try {
+               const parsed = JSON.parse(saved);
+               setStore(parsed.store || { tasks: {}, trash: [] });
+               if (parsed.theme) setTheme(parsed.theme);
+            } catch(e) {}
+          } else {
+             // 迁移旧版
+             const v2 = localStorage.getItem('toontask-v2');
+             if (v2) try { setStore(JSON.parse(v2)); } catch(e){}
+          }
+        }, []);
+
+        // 自动保存
+        useEffect(() => {
+          if (Object.keys(store.tasks).length > 0 || store.trash.length > 0) {
+             localStorage.setItem('toontask-v4', JSON.stringify({ store, theme }));
+          }
+        }, [store, theme]);
+
+        const currentTodos = store.tasks[currentDate] || [];
+
+        // 核心操作
+        const addTodo = (text) => {
+          if (!text.trim()) return;
+          const newTodo = { id: Date.now().toString(), text, status: 'idle', totalTimeSeconds: 0, lastStartedAt: null };
+          setStore(prev => ({ ...prev, tasks: { ...prev.tasks, [currentDate]: [newTodo, ...(prev.tasks[currentDate] || [])] } }));
+        };
+
+        const moveToTrash = (id) => {
+          const todo = currentTodos.find(t => t.id === id);
+          if (!todo) return;
+          const finalTodo = { ...todo, status: 'idle', lastStartedAt: null }; 
+          setStore(prev => ({
+            tasks: { ...prev.tasks, [currentDate]: prev.tasks[currentDate].filter(t => t.id !== id) },
+            trash: [finalTodo, ...prev.trash]
+          }));
+        };
+
+        const restoreFromTrash = (id) => {
+          const todo = store.trash.find(t => t.id === id);
+          if (!todo) return;
+          setStore(prev => ({
+            tasks: { ...prev.tasks, [currentDate]: [todo, ...(prev.tasks[currentDate] || [])] },
+            trash: prev.trash.filter(t => t.id !== id)
+          }));
+        };
+
+        const deleteForever = (id) => {
+          setStore(prev => ({ ...prev, trash: prev.trash.filter(t => t.id !== id) }));
+        };
+
+        const handleStatusChange = (id) => {
+          const todos = [...currentTodos];
+          const index = todos.findIndex(t => t.id === id);
+          if (index === -1) return;
+          const todo = todos[index];
+
+          if (todo.status === 'idle') {
+            todos[index] = { ...todo, status: 'running', lastStartedAt: Date.now() };
+          } else if (todo.status === 'running') {
+            const now = Date.now();
+            const session = (now - todo.lastStartedAt) / 1000;
+            todos[index] = { ...todo, status: 'done', lastStartedAt: null, totalTimeSeconds: todo.totalTimeSeconds + session };
+          } else if (todo.status === 'done') {
+            setModalConfig({ id, type: 'reset' });
+            return;
+          }
+
+          setStore(prev => ({ ...prev, tasks: { ...prev.tasks, [currentDate]: todos } }));
+        };
+
+        const confirmReset = () => {
+          if (!modalConfig) return;
+          setStore(prev => ({
+             ...prev, 
+             tasks: { 
+               ...prev.tasks, 
+               [currentDate]: prev.tasks[currentDate].map(t => t.id === modalConfig.id ? { ...t, status: 'idle', totalTimeSeconds: 0, lastStartedAt: null } : t) 
+             }
+          }));
+          setModalConfig(null);
+        };
+
+        const sortedTodos = [...currentTodos].sort((a, b) => {
+          const score = { running: 0, idle: 1, done: 2 };
+          return score[a.status] - score[b.status];
+        });
+
+        const activeTheme = THEMES[theme];
+        const displayDate = new Date(currentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+        return (
+          <div className={`relative w-full h-full bg-white rounded-[2rem] border-[3px] border-slate-900 shadow-[5px_5px_0px_0px_rgba(15,23,42,1)] overflow-hidden flex flex-col transition-colors`}>
+            
+            {view === 'stats' && <StatsView data={store} theme={theme} onClose={() => setView('list')} />}
+            
+            {/* Header */}
+            <div className={`p-5 border-b-[2.5px] border-slate-900 transition-colors ${view === 'trash' ? 'bg-red-50' : activeTheme.bg}`}>
+              <div className="flex items-center justify-between mb-2">
+                {view === 'trash' ? (
+                  <div className="flex items-center gap-2">
+                     <button onClick={() => setView('list')} className="p-1 bg-white border-2 border-slate-900 rounded-lg hover:scale-90 transition-transform"><Icons.Back /></button>
+                     <h1 className="text-2xl font-bold text-slate-900">回收站</h1>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setView('stats')}>
+                    <h1 className="text-3xl font-black text-slate-900 tracking-wide select-none group-hover:text-white transition-colors">ToonTask</h1>
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/20 p-1 rounded-md"><Icons.Swap /></div>
+                  </div>
+                )}
+
+                {/* 右上角控制区 */}
+                {view !== 'trash' && (
+                  <div className="flex gap-2">
+                     <button onClick={() => setShowSettings(true)} className="p-2 bg-white/30 hover:bg-white/50 rounded-xl transition-colors text-slate-900"><Icons.Gear /></button>
+                     
+                     <div className="relative">
+                        <button 
+                          onClick={() => setShowCalendar(!showCalendar)}
+                          className={`flex items-center gap-2 bg-white px-3 py-2 rounded-xl border-[2px] border-slate-900 shadow-sm transition-transform active:scale-95 hover:bg-slate-50`}
+                        >
+                          <div className={activeTheme.accent}><Icons.Calendar /></div>
+                          <span className="font-bold text-slate-800 text-sm whitespace-nowrap">{displayDate}</span>
+                        </button>
+                        {showCalendar && <CustomCalendar currentDate={currentDate} onSelect={(d) => setCurrentDate(d)} onClose={() => setShowCalendar(false)} />}
+                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 副标题栏 */}
+              <div className="flex justify-between items-end h-8">
+                <p className="text-slate-800 font-bold opacity-60 text-xs">
+                  {view === 'trash' ? `Trash Bin` : `Keep it up!`}
+                </p>
+                {view !== 'trash' && (
+                   <button 
+                     onClick={() => setView('trash')}
+                     className="bg-white p-1.5 rounded-lg border-2 border-slate-900 text-slate-400 hover:bg-red-50 hover:text-red-500 hover:border-red-500 transition-all"
+                   >
+                     <Icons.Trash />
+                   </button>
+                )}
+              </div>
+            </div>
+
+            {/* 内容区域 */}
+            <div className={`flex-1 overflow-y-auto p-4 space-y-3 custom-scroll ${view === 'trash' ? 'bg-red-50' : 'bg-white'}`}>
+              
+              {(view === 'list' && sortedTodos.length === 0) && (
+                <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2 select-none">
+                  <span className="text-5xl opacity-50">✨</span>
+                  <p className="font-bold text-sm">还没有任务哦</p>
+                </div>
+              )}
+
+              {view === 'list' && sortedTodos.map(todo => (
+                <TodoItem key={todo.id} todo={todo} theme={activeTheme} onStatusChange={() => handleStatusChange(todo.id)} onDelete={() => moveToTrash(todo.id)} />
+              ))}
+
+              {view === 'trash' && store.trash.map(todo => (
+                <div key={todo.id} className="flex items-center justify-between p-3 rounded-xl border-2 border-slate-200 bg-white/50">
+                   <span className="font-bold text-slate-400 line-through truncate flex-1 text-sm">{todo.text}</span>
+                   <div className="flex gap-2 ml-2">
+                      <button onClick={() => restoreFromTrash(todo.id)} className="p-1.5 bg-green-100 text-green-700 rounded-lg hover:scale-110 transition-transform"><Icons.Restore /></button>
+                      <button onClick={() => deleteForever(todo.id)} className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:scale-110 transition-transform"><Icons.TrashFilled /></button>
+                   </div>
+                </div>
+              ))}
+            </div>
+
+            {/* 底部输入栏 */}
+            {view === 'list' && <AddTodoForm onAdd={addTodo} theme={activeTheme} />}
+
+            {/* 各种弹窗 */}
+            {modalConfig && <ConfirmationModal onConfirm={confirmReset} onCancel={() => setModalConfig(null)} />}
+            {showSettings && <SettingsModal currentTheme={theme} onSetTheme={setTheme} onClose={() => setShowSettings(false)} />}
+          </div>
+        );
+      };
+
+      const TodoItem = ({ todo, onStatusChange, onDelete, theme }) => {
+        const [time, setTime] = useState(todo.totalTimeSeconds);
+
+        useEffect(() => {
+          let interval;
+          if (todo.status === 'running' && todo.lastStartedAt) {
+            interval = setInterval(() => {
+              setTime(todo.totalTimeSeconds + (Date.now() - todo.lastStartedAt) / 1000);
+            }, 1000);
+          } else {
+            setTime(todo.totalTimeSeconds);
+          }
+          return () => clearInterval(interval);
+        }, [todo.status, todo.lastStartedAt, todo.totalTimeSeconds]);
+
+        const formatTime = (s) => `${Math.floor(s/60).toString().padStart(2,'0')}:${Math.floor(s%60).toString().padStart(2,'0')}`;
+
+        return (
+          <div className={`relative flex items-center justify-between p-3 rounded-xl border-2 transition-all duration-200 group bg-white hover:border-slate-400 
+            ${todo.status === 'running' ? `border-orange-400 ${theme.bg} bg-opacity-10` : 'border-slate-200'}
+            ${todo.status === 'done' ? 'opacity-60 bg-slate-50' : ''}
+          `}>
+            <div className="flex items-center gap-3 flex-1 overflow-hidden">
+              <button 
+                onClick={onStatusChange}
+                className={`relative w-6 h-6 rounded-full border-[2px] border-slate-800 overflow-hidden flex items-center justify-center transition-transform active:scale-90 hover:scale-105 flex-shrink-0 bg-white`}
+              >
+                {todo.status === 'running' && <div className="absolute inset-0 wave-bg"></div>}
+                {todo.status === 'done' && <div className="absolute inset-0 bg-emerald-500 flex items-center justify-center check-enter"><Icons.Check /></div>}
+              </button>
+              
+              <span className={`font-bold text-base truncate transition-all ${todo.status === 'done' ? 'line-through text-slate-400' : 'text-slate-700'}`}>
+                {todo.text}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {(todo.status === 'running' || time > 0) && (
+                <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs font-bold border 
+                  ${todo.status === 'running' ? 'bg-orange-100 text-orange-700 border-orange-300' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                  <Icons.Timer /> {formatTime(time)}
+                </div>
+              )}
+              <button onClick={onDelete} className="w-6 h-6 flex items-center justify-center rounded text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100">
+                <Icons.Trash />
+              </button>
+            </div>
+          </div>
+        );
+      };
+
+      const AddTodoForm = ({ onAdd, theme }) => {
+        const [val, setVal] = useState('');
+        return (
+          <form onSubmit={(e) => { e.preventDefault(); onAdd(val); setVal(''); }} className="p-4 bg-slate-50 border-t-[2.5px] border-slate-900 flex gap-2">
+            <input 
+              type="text" value={val} onChange={(e) => setVal(e.target.value)} placeholder="新任务..." 
+              className="flex-1 px-4 py-3 rounded-xl border-[2px] border-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200 font-bold text-sm transition-all shadow-sm"
+            />
+            <button type="submit" disabled={!val.trim()} className={`
+              ${theme.bg} hover:brightness-110 text-slate-900 p-3 rounded-xl border-[2px] border-slate-900 
+              shadow-[3px_3px_0px_0px_#0f172a] active:shadow-none active:translate-y-1 transition-all disabled:opacity-50 disabled:active:translate-y-0
+            `}>
+              <Icons.Plus />
+            </button>
+          </form>
+        );
+      };
+
+      const ConfirmationModal = ({ onConfirm, onCancel }) => (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onCancel}></div>
+          <div className="relative bg-white w-full max-w-xs rounded-2xl border-[3px] border-slate-900 shadow-[6px_6px_0px_0px_#fff] p-6 pop-in">
+            <h3 className="text-xl font-bold text-slate-900 text-center mb-2">重置任务状态?</h3>
+            <p className="text-slate-500 font-bold text-xs text-center mb-6">计时器将清零，任务变回未开始。</p>
+            <div className="flex gap-3">
+              <button onClick={onCancel} className="flex-1 py-2 rounded-xl border-2 border-slate-200 font-bold text-slate-500 hover:bg-slate-50">取消</button>
+              <button onClick={onConfirm} className="flex-1 py-2 rounded-xl border-2 border-slate-900 bg-sky-400 text-white font-bold shadow-[2px_2px_0px_0px_#0f172a] active:translate-y-[2px] active:shadow-none">重置</button>
+            </div>
+          </div>
+        </div>
+      );
+
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    </script>
 </body>
 </html>
