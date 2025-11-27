@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
-import { Todo, TodoStatus } from './types';
-import TodoItem from './components/TodoItem';
-import AddTodo from './components/AddTodo';
-import ConfirmationModal from './components/ConfirmationModal';
+import { Todo, TodoStatus } from './types.ts';
+import TodoItem from './components/TodoItem.tsx';
+import AddTodo from './components/AddTodo.tsx';
+import ConfirmationModal from './components/ConfirmationModal.tsx';
 
 const STORAGE_KEY = 'toontask-data';
 

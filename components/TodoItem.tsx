@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trash2, Timer } from 'lucide-react';
-import { Todo, TodoStatus } from '../types';
+import { Todo, TodoStatus } from '../types.ts';
 
 interface TodoItemProps {
   todo: Todo;

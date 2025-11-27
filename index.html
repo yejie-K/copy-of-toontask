@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ToonTask</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Babel to compile React in the browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
@@ -12,10 +14,8 @@
       body {
         font-family: 'Fredoka', sans-serif;
         background-color: #f0f4f8;
-        /* Disable text selection for app-like feel */
         user-select: none;
       }
-      /* Custom scrollbar for webkit */
       ::-webkit-scrollbar {
         width: 8px;
       }
@@ -30,22 +30,25 @@
         background: #94a3b8;
       }
     </style>
-  <script type="importmap">
+    <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "framer-motion": "https://aistudiocdn.com/framer-motion@^12.23.24",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.294.0",
+    "framer-motion": "https://esm.sh/framer-motion@10.16.4",
+    "date-fns": "https://esm.sh/date-fns@2.30.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "date-fns": "https://aistudiocdn.com/date-fns@^4.1.0"
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
+    <!-- Load the main entry file with Babel processing -->
+    <script type="text/babel" data-type="module" src="./index.tsx"></script>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>
