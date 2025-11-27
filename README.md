@@ -1,20 +1,26 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# ToonTask Desktop Widget (Web Version)
 
-This contains everything you need to run your app locally.
+**当前版本**: v5.3
+**定位**: 风格化的卡通桌面待办事项小组件 (Single File HTML App)
 
-View your app in AI Studio: https://ai.studio/apps/drive/1YKqnOzTIxhHxmBtEo_TI45jH8eVh4J0l
+## 📋 功能更新 (V5.3 Changelog)
 
-## Run Locally
+### 1. 统计图表重构 (Pie Chart Overhaul)
+- **水平卡片标签**: 彻底移除了旧版跟随圆盘旋转的文字。现在使用一个**水平长方形卡片 (Bubble Card)** 来显示占比最大的任务。
+- **动态连线**: 增加了一条折线，从圆心指向标签，视觉逻辑更清晰。
+- **智能排版**: 卡片位置会根据扇区角度自动计算（使用三角函数），确保不遮挡图表。
 
-**Prerequisites:**  Node.js
+### 2. 日历定位修复 (Fixed Calendar Positioning)
+- **绝对定位**: 日历不再使用 `fixed`（屏幕固定），改为 `absolute`（App 内固定）。
+- **解决痛点**: 彻底解决了在 PC/宽屏网页端，日历会飞到屏幕最右侧的问题。现在它乖乖呆在 App 的右上角。
+- **交互优化**: 保留了全屏透明遮罩，点击日历外的任何地方（包括 App 内部或外部）都能关闭日历。
 
+### 3. 视觉精致化 (Visual Refinements)
+- **边框瘦身**: 全局边框从 `4px` 统一降级为 `2px`。
+- **阴影减淡**: 阴影偏移量减小，去除厚重感，保留轻盈的卡通风。
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 🚀 如何运行
+1. 下载 `index.html`。
+2. 使用 VS Code 的 **Live Server** 插件打开。
+3. 如果想清空数据测试，可以在浏览器控制台输入 `localStorage.clear()` 然后刷新。

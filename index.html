@@ -6,30 +6,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ToonTask Desktop Widget</title>
     
-    <!-- 1. 引入 Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 2. 引入 React 和 ReactDOM -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <!-- 3. 引入 Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-    <!-- 4. 引入 Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <style>
-      body {
-        font-family: 'Fredoka', sans-serif;
-        background-color: transparent;
-      }
-      /* 自定义滚动条 */
-      .custom-scroll::-webkit-scrollbar { width: 5px; }
+      body { font-family: 'Fredoka', sans-serif; background-color: transparent; }
+      .custom-scroll::-webkit-scrollbar { width: 4px; }
       .custom-scroll::-webkit-scrollbar-track { background: transparent; }
       .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
       
-      /* 动画定义 */
       @keyframes check-pop {
         0% { transform: scale(0); opacity: 0; }
         60% { transform: scale(1.2); }
@@ -47,8 +35,6 @@
         background-size: 200% 200%;
         animation: wave-anim 2s ease infinite;
       }
-
-      /* 通用弹窗/下拉动画 */
       .pop-in { animation: check-pop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
     </style>
 <script type="importmap">
@@ -71,7 +57,7 @@
     <script type="text/babel">
       const { useState, useEffect, useMemo, useRef } = React;
 
-      // --- SVG 图标库 (优化版，线条更细) ---
+      // --- SVG Icons (Thinner strokes: strokeWidth 2 or 2.5) ---
       const Icons = {
         Plus: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
         Trash: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
@@ -79,17 +65,15 @@
         Calendar: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>,
         Timer: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
         Check: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-        Refresh: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>,
         Restore: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>,
         Back: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>,
         Pie: () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>,
         Gear: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.39a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
         Swap: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>,
-        ChevronLeft: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>,
-        ChevronRight: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        ChevronLeft: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>,
+        ChevronRight: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
       };
 
-      // --- 主题配置 ---
       const THEMES = {
         lemon: { name: '柠檬黄', bg: 'bg-yellow-300', accent: 'text-yellow-600', hover: 'hover:bg-yellow-100', border: 'border-yellow-500' },
         mint: { name: '薄荷绿', bg: 'bg-emerald-300', accent: 'text-emerald-600', hover: 'hover:bg-emerald-100', border: 'border-emerald-500' },
@@ -97,14 +81,14 @@
         sky: { name: '天空蓝', bg: 'bg-sky-300', accent: 'text-sky-600', hover: 'hover:bg-sky-100', border: 'border-sky-500' },
       };
 
-      // --- 工具函数 ---
       const formatDateKey = (date) => date.toISOString().split('T')[0];
       const getTodayKey = () => formatDateKey(new Date());
 
-      // --- 组件：自定义日历弹窗 ---
+      // --- Component: Custom Calendar ---
+      // Fix: Now uses absolute positioning relative to parent, ensuring it stays "in-app" on desktop
       const CustomCalendar = ({ currentDate, onSelect, onClose }) => {
         const [viewDate, setViewDate] = useState(new Date(currentDate));
-
+        
         const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
         const firstDayOfMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay();
 
@@ -116,41 +100,50 @@
         for (let i = 1; i <= daysInMonth; i++) days.push(i);
 
         return (
-          <div className="absolute top-16 right-4 z-50 bg-white p-4 rounded-2xl border-[2.5px] border-slate-900 shadow-[4px_4px_0px_0px_#0f172a] w-64 pop-in">
-             <div className="flex justify-between items-center mb-4">
-                <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronLeft /></button>
-                <span className="font-bold text-slate-800">{viewDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
-                <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronRight /></button>
-             </div>
-             <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 mb-2">
-               <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
-             </div>
-             <div className="grid grid-cols-7 gap-1">
-               {days.map((day, idx) => {
-                 if (!day) return <div key={idx} />;
-                 const dateStr = formatDateKey(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
-                 const isSelected = dateStr === currentDate;
-                 const isToday = dateStr === getTodayKey();
-                 
-                 return (
-                   <button
-                     key={idx}
-                     onClick={() => { onSelect(dateStr); onClose(); }}
-                     className={`h-8 w-8 rounded-lg text-sm font-bold flex items-center justify-center transition-all 
-                       ${isSelected ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 text-slate-700'}
-                       ${isToday && !isSelected ? 'border-2 border-slate-900' : ''}
-                     `}
-                   >
-                     {day}
-                   </button>
-                 );
-               })}
-             </div>
-          </div>
+          <>
+            {/* Backdrop: Full screen transparent click listener */}
+            <div className="fixed inset-0 z-40 bg-transparent" onClick={onClose}></div>
+            
+            {/* Calendar Box: Absolute relative to app container */}
+            <div 
+              className="absolute top-20 right-4 z-50 bg-white p-4 rounded-2xl border-2 border-slate-900 shadow-[3px_3px_0px_0px_#0f172a] w-64 pop-in"
+              onClick={(e) => e.stopPropagation()} 
+            >
+               <div className="flex justify-between items-center mb-4">
+                  <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronLeft /></button>
+                  <span className="font-bold text-slate-800">{viewDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                  <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-lg"><Icons.ChevronRight /></button>
+               </div>
+               <div className="grid grid-cols-7 gap-1 text-center text-xs font-bold text-slate-400 mb-2">
+                 <div>S</div><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div>
+               </div>
+               <div className="grid grid-cols-7 gap-1">
+                 {days.map((day, idx) => {
+                   if (!day) return <div key={idx} />;
+                   const dateStr = formatDateKey(new Date(viewDate.getFullYear(), viewDate.getMonth(), day));
+                   const isSelected = dateStr === currentDate;
+                   const isToday = dateStr === getTodayKey();
+                   
+                   return (
+                     <button
+                       key={idx}
+                       onClick={() => { onSelect(dateStr); onClose(); }}
+                       className={`h-8 w-8 rounded-lg text-sm font-bold flex items-center justify-center transition-all 
+                         ${isSelected ? 'bg-slate-900 text-white' : 'hover:bg-slate-100 text-slate-700'}
+                         ${isToday && !isSelected ? 'border-2 border-slate-900' : ''}
+                       `}
+                     >
+                       {day}
+                     </button>
+                   );
+                 })}
+               </div>
+            </div>
+          </>
         );
       };
 
-      // --- 组件：统计饼图 ---
+      // --- Component: Stats View ---
       const StatsView = ({ data, onClose, theme }) => {
         const [timeframe, setTimeframe] = useState('week');
 
@@ -165,94 +158,173 @@
             targetKeys.push(formatDateKey(d));
           }
 
-          let done = 0, running = 0, idle = 0, totalSeconds = 0;
-          
+          const durationMap = {};
+          let totalDuration = 0;
+
           targetKeys.forEach(key => {
             const dayTasks = data.tasks[key] || [];
             dayTasks.forEach(t => {
-              if (t.status === 'done') done++;
-              else if (t.status === 'running') running++;
-              else idle++;
-              totalSeconds += (t.totalTimeSeconds || 0);
+              const name = t.text.trim();
+              if (!name) return;
+              let currentSession = 0;
+              if (t.status === 'running' && t.lastStartedAt) {
+                 currentSession = (Date.now() - t.lastStartedAt) / 1000;
+              }
+              const taskTotal = (t.totalTimeSeconds || 0) + currentSession;
+              if (taskTotal > 0) {
+                 durationMap[name] = (durationMap[name] || 0) + taskTotal;
+                 totalDuration += taskTotal;
+              }
             });
           });
 
-          const total = done + running + idle;
-          return { done, running, idle, total, totalSeconds };
+          const sortedItems = Object.entries(durationMap)
+            .map(([name, time]) => ({ name, time }))
+            .sort((a, b) => b.time - a.time);
+
+          let finalItems = sortedItems.slice(0, 4);
+          const others = sortedItems.slice(4).reduce((acc, curr) => acc + curr.time, 0);
+          if (others > 0) {
+            finalItems.push({ name: '其他', time: others });
+          }
+
+          return { items: finalItems, totalDuration };
         }, [data, timeframe]);
 
-        const donePct = stats.total ? (stats.done / stats.total) * 100 : 0;
-        const runPct = stats.total ? (stats.running / stats.total) * 100 : 0;
+        const colors = ['#f59e0b', '#10b981', '#f43f5e', '#3b82f6', '#94a3b8'];
+        let gradientParts = [];
+        let currentPct = 0;
         
+        // Variables for the "Callout" label
+        let maxItem = null;
+        let maxAngle = 0; // The angle of the CENTER of the largest slice
+        
+        stats.items.forEach((item, idx) => {
+           const pct = (item.time / stats.totalDuration) * 100;
+           gradientParts.push(`${colors[idx % colors.length]} ${currentPct}% ${currentPct + pct}%`);
+           
+           if (idx === 0 && stats.totalDuration > 0) {
+             maxItem = item;
+             // Angle in degrees (0 is top)
+             const startDeg = currentPct * 3.6;
+             const endDeg = (currentPct + pct) * 3.6;
+             maxAngle = startDeg + (endDeg - startDeg) / 2;
+           }
+           currentPct += pct;
+        });
+
         const pieStyle = {
-          background: stats.total === 0 
+          background: stats.totalDuration === 0 
             ? '#e2e8f0' 
-            : `conic-gradient(
-                #10b981 0% ${donePct}%, 
-                #f59e0b ${donePct}% ${donePct + runPct}%, 
-                #f1f5f9 ${donePct + runPct}% 100%
-              )`
+            : `conic-gradient(${gradientParts.join(', ')})`
         };
 
         const formatDuration = (s) => {
           const h = Math.floor(s / 3600);
           const m = Math.floor((s % 3600) / 60);
-          return h > 0 ? `${h}h ${m}m` : `${m}m`;
+          if (h > 0) return `${h}h ${m}m`;
+          return `${m}m`;
         };
+        
+        // Calculate Callout Position
+        // Angle 0 is top. We want x,y relative to center.
+        // CSS rotation starts at 12 o'clock. 
+        // rad = (angle - 90) * PI / 180 is for standard unit circle where 0 is right.
+        // For CSS clock-wise from top:
+        // x = sin(a), y = -cos(a)
+        const radius = 60; // 50% width + spacing
+        const rad = maxAngle * (Math.PI / 180);
+        const labelX = Math.sin(rad) * radius; // px offset direction
+        const labelY = -Math.cos(rad) * radius;
 
         return (
           <div className="absolute inset-0 bg-white z-20 flex flex-col pop-in">
             <div className="bg-slate-900 p-5 flex justify-between items-center text-white border-b-2 border-slate-900">
               <h2 className="text-xl font-bold flex items-center gap-2">
-                <Icons.Pie /> 统计 · Statistics
+                <Icons.Pie /> 任务统计
               </h2>
               <button onClick={onClose} className="p-2 bg-white/10 rounded-lg hover:bg-white/20"><Icons.Back /></button>
             </div>
 
             <div className="flex-1 p-6 overflow-y-auto custom-scroll bg-slate-50">
-              <div className="flex bg-white p-1 rounded-xl mb-6 border-2 border-slate-200">
-                <button onClick={() => setTimeframe('week')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${timeframe === 'week' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本周</button>
-                <button onClick={() => setTimeframe('month')} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${timeframe === 'month' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本月</button>
+              <div className="flex bg-white p-1 rounded-xl mb-6 border-2 border-slate-200 shadow-sm">
+                <button onClick={() => setTimeframe('week')} className={`flex-1 py-1.5 text-sm font-bold rounded-lg transition-all ${timeframe === 'week' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本周</button>
+                <button onClick={() => setTimeframe('month')} className={`flex-1 py-1.5 text-sm font-bold rounded-lg transition-all ${timeframe === 'month' ? 'bg-slate-900 text-white' : 'text-slate-400'}`}>本月</button>
               </div>
 
-              <div className="flex justify-center mb-8 relative">
-                <div className="w-40 h-40 rounded-full border-[3px] border-slate-900 shadow-[4px_4px_0px_0px_#0f172a]" style={pieStyle}></div>
-                {stats.total === 0 && <span className="absolute inset-0 flex items-center justify-center font-bold text-slate-400 text-xs">暂无数据</span>}
+              {/* Pie Chart Area */}
+              <div className="flex justify-center mb-8 relative pt-6 min-h-[220px]">
+                <div className="relative w-48 h-48">
+                  <div className="w-full h-full rounded-full border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a]" style={pieStyle}></div>
+                  {/* Inner hole */}
+                  <div className="absolute inset-0 m-auto w-16 h-16 bg-slate-50 rounded-full border-2 border-slate-900 flex items-center justify-center shadow-inner">
+                     <span className="text-xs font-bold text-slate-400">Total</span>
+                  </div>
+                  
+                  {/* Fixed: Horizontal Rectangular Callout */}
+                  {maxItem && (
+                     <>
+                        {/* Line connector */}
+                        <div 
+                           className="absolute top-1/2 left-1/2 bg-slate-900 origin-bottom"
+                           style={{
+                              width: '2px',
+                              height: '40px',
+                              transform: `translate(-50%, -100%) rotate(${maxAngle}deg) translateY(-20px)`
+                           }}
+                        ></div>
+                        {/* The Bubble Card */}
+                        <div 
+                           className="absolute bg-white px-2 py-1 rounded-md border-2 border-slate-900 shadow-[2px_2px_0px_0px_#0f172a] whitespace-nowrap z-10 flex flex-col items-center"
+                           style={{
+                              top: '50%',
+                              left: '50%',
+                              transform: `translate(-50%, -50%) translate(${Math.sin(rad) * 90}px, ${-Math.cos(rad) * 90}px)` 
+                           }}
+                        >
+                           <span className="text-xs font-bold text-slate-900">{maxItem.name}</span>
+                           <span className="text-[10px] font-bold text-slate-500">{Math.round((maxItem.time/stats.totalDuration)*100)}%</span>
+                        </div>
+                     </>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 mb-6 text-center">
-                <StatCard color="bg-emerald-100 text-emerald-700" title="已完成" value={stats.done} />
-                <StatCard color="bg-orange-100 text-orange-700" title="执行中" value={stats.running} />
-                <StatCard color="bg-slate-200 text-slate-700" title="未开始" value={stats.idle} />
+              {/* Legend List */}
+              <div className="space-y-2 mb-6">
+                {stats.totalDuration === 0 ? (
+                    <div className="text-center text-slate-400 font-bold py-4">这段时间没有记录哦</div>
+                ) : (
+                    stats.items.map((item, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-3 bg-white border-2 border-slate-200 rounded-xl">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className="w-4 h-4 rounded-full border-2 border-slate-900 shrink-0" style={{ background: colors[idx % colors.length] }}></div>
+                          <span className="font-bold text-slate-700 text-sm truncate">{item.name}</span>
+                        </div>
+                        <span className="font-bold text-slate-900 text-sm">{formatDuration(item.time)}</span>
+                      </div>
+                    ))
+                )}
               </div>
 
-              <div className={`${THEMES[theme].bg} p-4 rounded-xl border-[2.5px] border-slate-900 flex items-center justify-between shadow-[2px_2px_0px_0px_#0f172a]`}>
-                <span className="font-bold text-slate-800 text-sm">专注总时长</span>
-                <span className="font-black text-xl text-slate-900">{formatDuration(stats.totalSeconds)}</span>
+              <div className={`${THEMES[theme].bg} p-4 rounded-xl border-2 border-slate-900 flex items-center justify-between shadow-[2px_2px_0px_0px_#0f172a]`}>
+                <span className="font-bold text-slate-800 text-sm">总专注时长</span>
+                <span className="font-black text-xl text-slate-900">{formatDuration(stats.totalDuration)}</span>
               </div>
             </div>
           </div>
         );
       };
 
-      const StatCard = ({ color, title, value }) => (
-        <div className={`p-2 rounded-xl border-[2px] border-slate-900 ${color}`}>
-          <div className="font-bold text-xl">{value}</div>
-          <div className="text-[10px] opacity-80 font-bold">{title}</div>
-        </div>
-      );
-
-      // --- 组件：设置弹窗 ---
       const SettingsModal = ({ currentTheme, onSetTheme, onClose }) => {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose}></div>
-            <div className="relative bg-white w-full max-w-xs rounded-[2rem] border-[3px] border-slate-900 shadow-[6px_6px_0px_0px_#fff] p-5 pop-in">
+            <div className="relative bg-white w-full max-w-xs rounded-[2rem] border-2 border-slate-900 shadow-[3px_3px_0px_0px_#fff] p-5 pop-in">
               <div className="flex justify-between items-center mb-4">
                  <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Icons.Gear /> 设置</h3>
-                 <button onClick={onClose}><Icons.Trash className="rotate-45" /></button> {/* Close icon hacked from trash */}
+                 <button onClick={onClose}><Icons.Trash className="rotate-45" /></button>
               </div>
-              
               <div className="space-y-4">
                 <div>
                    <label className="text-sm font-bold text-slate-500 mb-2 block">主题颜色</label>
@@ -277,43 +349,34 @@
         );
       };
 
-      // --- 主应用 ---
       const App = () => {
         const [store, setStore] = useState({ tasks: {}, trash: [] });
         const [currentDate, setCurrentDate] = useState(getTodayKey());
-        const [view, setView] = useState('list'); // 'list' | 'trash' | 'stats'
+        const [view, setView] = useState('list');
         const [showCalendar, setShowCalendar] = useState(false);
         const [showSettings, setShowSettings] = useState(false);
         const [theme, setTheme] = useState('lemon');
-        
         const [modalConfig, setModalConfig] = useState(null);
 
-        // 初始化
         useEffect(() => {
-          const saved = localStorage.getItem('toontask-v4');
+          const saved = localStorage.getItem('toontask-v5');
           if (saved) {
             try {
                const parsed = JSON.parse(saved);
                setStore(parsed.store || { tasks: {}, trash: [] });
                if (parsed.theme) setTheme(parsed.theme);
             } catch(e) {}
-          } else {
-             // 迁移旧版
-             const v2 = localStorage.getItem('toontask-v2');
-             if (v2) try { setStore(JSON.parse(v2)); } catch(e){}
           }
         }, []);
 
-        // 自动保存
         useEffect(() => {
           if (Object.keys(store.tasks).length > 0 || store.trash.length > 0) {
-             localStorage.setItem('toontask-v4', JSON.stringify({ store, theme }));
+             localStorage.setItem('toontask-v5', JSON.stringify({ store, theme }));
           }
         }, [store, theme]);
 
         const currentTodos = store.tasks[currentDate] || [];
 
-        // 核心操作
         const addTodo = (text) => {
           if (!text.trim()) return;
           const newTodo = { id: Date.now().toString(), text, status: 'idle', totalTimeSeconds: 0, lastStartedAt: null };
@@ -384,12 +447,11 @@
         const displayDate = new Date(currentDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
         return (
-          <div className={`relative w-full h-full bg-white rounded-[2rem] border-[3px] border-slate-900 shadow-[5px_5px_0px_0px_rgba(15,23,42,1)] overflow-hidden flex flex-col transition-colors`}>
+          <div className={`relative w-full h-full bg-white rounded-[2rem] border-2 border-slate-900 shadow-[3px_3px_0px_0px_rgba(15,23,42,1)] overflow-hidden flex flex-col transition-colors`}>
             
             {view === 'stats' && <StatsView data={store} theme={theme} onClose={() => setView('list')} />}
             
-            {/* Header */}
-            <div className={`p-5 border-b-[2.5px] border-slate-900 transition-colors ${view === 'trash' ? 'bg-red-50' : activeTheme.bg}`}>
+            <div className={`p-5 border-b-2 border-slate-900 transition-colors ${view === 'trash' ? 'bg-red-50' : activeTheme.bg}`}>
               <div className="flex items-center justify-between mb-2">
                 {view === 'trash' ? (
                   <div className="flex items-center gap-2">
@@ -403,26 +465,23 @@
                   </div>
                 )}
 
-                {/* 右上角控制区 */}
                 {view !== 'trash' && (
                   <div className="flex gap-2">
                      <button onClick={() => setShowSettings(true)} className="p-2 bg-white/30 hover:bg-white/50 rounded-xl transition-colors text-slate-900"><Icons.Gear /></button>
                      
                      <div className="relative">
                         <button 
-                          onClick={() => setShowCalendar(!showCalendar)}
-                          className={`flex items-center gap-2 bg-white px-3 py-2 rounded-xl border-[2px] border-slate-900 shadow-sm transition-transform active:scale-95 hover:bg-slate-50`}
+                          onClick={() => setShowCalendar(true)}
+                          className={`flex items-center gap-2 bg-white px-3 py-2 rounded-xl border-2 border-slate-900 shadow-sm transition-transform active:scale-95 hover:bg-slate-50`}
                         >
                           <div className={activeTheme.accent}><Icons.Calendar /></div>
                           <span className="font-bold text-slate-800 text-sm whitespace-nowrap">{displayDate}</span>
                         </button>
-                        {showCalendar && <CustomCalendar currentDate={currentDate} onSelect={(d) => setCurrentDate(d)} onClose={() => setShowCalendar(false)} />}
                      </div>
                   </div>
                 )}
               </div>
 
-              {/* 副标题栏 */}
               <div className="flex justify-between items-end h-8">
                 <p className="text-slate-800 font-bold opacity-60 text-xs">
                   {view === 'trash' ? `Trash Bin` : `Keep it up!`}
@@ -438,9 +497,10 @@
               </div>
             </div>
 
-            {/* 内容区域 */}
+            {/* Calendar Overlay (Absolute Position + Backdrop) */}
+            {showCalendar && <CustomCalendar currentDate={currentDate} onSelect={(d) => setCurrentDate(d)} onClose={() => setShowCalendar(false)} />}
+
             <div className={`flex-1 overflow-y-auto p-4 space-y-3 custom-scroll ${view === 'trash' ? 'bg-red-50' : 'bg-white'}`}>
-              
               {(view === 'list' && sortedTodos.length === 0) && (
                 <div className="h-full flex flex-col items-center justify-center text-slate-300 gap-2 select-none">
                   <span className="text-5xl opacity-50">✨</span>
@@ -463,10 +523,8 @@
               ))}
             </div>
 
-            {/* 底部输入栏 */}
             {view === 'list' && <AddTodoForm onAdd={addTodo} theme={activeTheme} />}
 
-            {/* 各种弹窗 */}
             {modalConfig && <ConfirmationModal onConfirm={confirmReset} onCancel={() => setModalConfig(null)} />}
             {showSettings && <SettingsModal currentTheme={theme} onSetTheme={setTheme} onClose={() => setShowSettings(false)} />}
           </div>
@@ -498,7 +556,7 @@
             <div className="flex items-center gap-3 flex-1 overflow-hidden">
               <button 
                 onClick={onStatusChange}
-                className={`relative w-6 h-6 rounded-full border-[2px] border-slate-800 overflow-hidden flex items-center justify-center transition-transform active:scale-90 hover:scale-105 flex-shrink-0 bg-white`}
+                className={`relative w-6 h-6 rounded-full border-2 border-slate-800 overflow-hidden flex items-center justify-center transition-transform active:scale-90 hover:scale-105 flex-shrink-0 bg-white`}
               >
                 {todo.status === 'running' && <div className="absolute inset-0 wave-bg"></div>}
                 {todo.status === 'done' && <div className="absolute inset-0 bg-emerald-500 flex items-center justify-center check-enter"><Icons.Check /></div>}
@@ -527,14 +585,14 @@
       const AddTodoForm = ({ onAdd, theme }) => {
         const [val, setVal] = useState('');
         return (
-          <form onSubmit={(e) => { e.preventDefault(); onAdd(val); setVal(''); }} className="p-4 bg-slate-50 border-t-[2.5px] border-slate-900 flex gap-2">
+          <form onSubmit={(e) => { e.preventDefault(); onAdd(val); setVal(''); }} className="p-4 bg-slate-50 border-t-2 border-slate-900 flex gap-2">
             <input 
               type="text" value={val} onChange={(e) => setVal(e.target.value)} placeholder="新任务..." 
-              className="flex-1 px-4 py-3 rounded-xl border-[2px] border-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200 font-bold text-sm transition-all shadow-sm"
+              className="flex-1 px-4 py-3 rounded-xl border-2 border-slate-900 focus:outline-none focus:border-slate-900 focus:ring-2 focus:ring-slate-200 font-bold text-sm transition-all shadow-sm"
             />
             <button type="submit" disabled={!val.trim()} className={`
-              ${theme.bg} hover:brightness-110 text-slate-900 p-3 rounded-xl border-[2px] border-slate-900 
-              shadow-[3px_3px_0px_0px_#0f172a] active:shadow-none active:translate-y-1 transition-all disabled:opacity-50 disabled:active:translate-y-0
+              ${theme.bg} hover:brightness-110 text-slate-900 p-3 rounded-xl border-2 border-slate-900 
+              shadow-[2px_2px_0px_0px_#0f172a] active:shadow-none active:translate-y-1 transition-all disabled:opacity-50 disabled:active:translate-y-0
             `}>
               <Icons.Plus />
             </button>
@@ -545,7 +603,7 @@
       const ConfirmationModal = ({ onConfirm, onCancel }) => (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onCancel}></div>
-          <div className="relative bg-white w-full max-w-xs rounded-2xl border-[3px] border-slate-900 shadow-[6px_6px_0px_0px_#fff] p-6 pop-in">
+          <div className="relative bg-white w-full max-w-xs rounded-2xl border-2 border-slate-900 shadow-[3px_3px_0px_0px_#fff] p-6 pop-in">
             <h3 className="text-xl font-bold text-slate-900 text-center mb-2">重置任务状态?</h3>
             <p className="text-slate-500 font-bold text-xs text-center mb-6">计时器将清零，任务变回未开始。</p>
             <div className="flex gap-3">
