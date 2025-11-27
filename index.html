@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -203,16 +202,6 @@
               
               // Apply friction
               velocity.current *= INERTIA_DECAY;
-              
-              // Move scroll (velocity is negative when dragging up, which increases scrollY visually if inverted, 
-              // but here dragging up (neg Y) -> increases scrollPos? 
-              // Logic: Drag Up (-Y) -> newScroll = start - (-Y) = start + Y. Scroll increases.
-              // So velocity matches scroll direction change inverted.
-              // Let's just apply velocity directly to scroll subtraction to match drag logic.
-              // drag: scroll = start - delta. delta increases as Y increases.
-              // velocity = dY/dt. 
-              // step = velocity * dt. 
-              // scroll -= step * speed_factor
               
               const step = velocity.current * 16 * DRAG_SPEED * 1.5; // 16ms frame approx
               let newScroll = scrollPosRef.current - step;
@@ -544,6 +533,13 @@
 
       // --- Settings Modal ---
       const SettingsModal = ({ currentTheme, onSetTheme, onClose }) => {
+        const handleReset = () => {
+           if(window.confirm("确定要删除所有任务数据并重置应用吗？此操作不可恢复。")) {
+               localStorage.removeItem('toontask-v6');
+               window.location.reload();
+           }
+        };
+
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose}></div>
@@ -569,6 +565,17 @@
                        </button>
                      ))}
                    </div>
+                </div>
+                
+                {/* Danger Zone: Reset Button */}
+                <div className="pt-4 border-t-2 border-slate-100">
+                    <label className="text-sm font-bold text-red-300 mb-2 block">危险区域</label>
+                    <button 
+                        onClick={handleReset}
+                        className="w-full py-3 rounded-xl border-2 border-red-100 bg-red-50 text-red-500 font-bold text-sm hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
+                    >
+                        清除数据并重置应用
+                    </button>
                 </div>
               </div>
             </div>
